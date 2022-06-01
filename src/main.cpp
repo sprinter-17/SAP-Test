@@ -1,21 +1,8 @@
-#include "controls.h"
 #include <Arduino.h>
 
-#define RESET 2
-#define MAIN_CLOCK 3
-#define SHIFT_CLEAR 4
-#define SHIFT_DATA 5
-#define COMMAND_CLOCK 6
-#define BUS_OUT_CLOCK 7
-#define BUS_IN_CLOCK 8
-#define BUS_IN_LOAD 9
-#define BUS_OUT_ENABLE 10
-#define PROG_MEM 11
-
-#define ZERO_MICRO_COUNTER A5
-#define ZERO_FLAG A4
-#define NEG_FLAG A3
-#define CARRY_FLAG A2
+#include "controls.h"
+#include "ssc_interface_pins.h"
+#include "../../Programmer/include/commands.h"
 
 #define CLOCK_DELAY 7
 
@@ -191,12 +178,14 @@ bool testUnaryOperation(uint8_t op1, uint8_t expected, uint8_t OP_CODE, char con
     }
 }
 
-bool testBinaryOperation(uint8_t op1, uint8_t op2, uint8_t expected, uint8_t OP_CODE, char const *desc, char const *symbol) {
+bool testBinaryOperation(uint8_t op1, uint8_t op2, uint8_t expected, uint8_t OP_CODE, char const *desc,
+                         char const *symbol) {
     sendCommandWithValue(TRANSFER | FROM_INPUT | TO_A, op1);
     sendCommandWithValue(TRANSFER | FROM_INPUT | TO_B, op2);
     uint8_t actual = getValue(CALCULATION | OP_CODE);
     if (actual != expected) {
-        sprintf(text, "**** %s operation failed: %d %s %d was %d expecting %d", desc, op1, symbol, op2, actual, expected);
+        sprintf(text, "**** %s operation failed: %d %s %d was %d expecting %d", desc, op1, symbol, op2, actual,
+                expected);
         Serial.println(text);
         return false;
     } else {
@@ -291,7 +280,7 @@ bool testNext( ) {
     return passed;
 }
 
-bool testFlagValue(uint8_t flag, bool expected, char const * desc) {
+bool testFlagValue(uint8_t flag, bool expected, char const *desc) {
     if (expected && digitalRead(flag) == LOW) {
         sprintf(text, "**** %s failed: was L expecting H", desc);
         Serial.println(text);
@@ -416,6 +405,25 @@ bool testBranch( ) {
     return passed;
 }
 
+void loadSimpleProgram() {
+    Serial.println("Loading 24 + 18");
+    digitalWrite(PROG_MEM, LOW);
+    uint8_t address = 0;
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_ADDRESS, address++);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_STORE, LDAI);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_ADDRESS, address++);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_STORE, 24);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_ADDRESS, address++);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_STORE, LDAI);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_ADDRESS, address++);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_STORE, 18);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_ADDRESS, address++);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_STORE, ADD);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_ADDRESS, address++);
+    sendCommandWithValue(TRANSFER | FROM_INPUT | TO_STORE, HALT);
+    digitalWrite(PROG_MEM, HIGH);
+}
+
 void setup( ) {
     pinMode(RESET, OUTPUT);
     pinMode(MAIN_CLOCK, OUTPUT);
@@ -451,7 +459,9 @@ void setup( ) {
     passed &= testBranch( );
     if (passed) {
         Serial.println("All tests passed");
+        loadSimpleProgram( );
     }
 }
 
-void loop( ) {}
+void loop( ) {
+}
